@@ -1,0 +1,14 @@
+{
+  "lint": {
+    "exclude": [
+      "node",
+      "test"
+    ]
+  },
+  "fmt": {
+    "exclude": [
+      "node",
+      "test"
+    ]
+  }
+}
