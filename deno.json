@@ -10,5 +10,9 @@
       "node",
       "test"
     ]
-  }
+  },
+  "tasks": {
+    "vendor": "deno run -A vendor.ts"
+  },
+  "lock": false
 }

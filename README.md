@@ -5,7 +5,7 @@
 Modify the verion number in `vendor.ts`, and run:
 
 ```
-deno run -A vendor.ts
+deno task vendor
 ```
 
 This updates `test/` directory with the test cases of the updated Node.js version.
