@@ -1,3 +1,5 @@
+// Copyright 2023 the Deno authors. All rights reserved. MIT license.
+
 /** This scripts vendors the test/ dir of nodejs repository to local ./test dir */
 
 import $ from "https://deno.land/x/dax@0.31.1/mod.ts";

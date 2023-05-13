@@ -9,3 +9,9 @@ deno task vendor
 ```
 
 This updates `test/` directory with the test cases of the updated Node.js version.
+
+# LICENSE
+
+MIT License. Copyright Node.js contributors. All rights reserved.
+
+MIT License. Copyright 2023 the Deno authors. All rights reserved.
