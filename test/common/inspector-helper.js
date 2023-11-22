@@ -372,7 +372,7 @@ class NodeInstance extends EventEmitter {
 
   static async startViaSignal(scriptContents) {
     const instance = new NodeInstance(
-      ['--expose-internals'],
+      ['--expose-internals', '--inspect-port=0'],
       `${scriptContents}\nprocess._rawDebug('started');`, undefined);
     const msg = 'Timed out waiting for process to start';
     while (await fires(instance.nextStderrString(), msg, TIMEOUT) !== 'started');
@@ -434,8 +434,8 @@ class NodeInstance extends EventEmitter {
         'Connection': 'Upgrade',
         'Upgrade': 'websocket',
         'Sec-WebSocket-Version': 13,
-        'Sec-WebSocket-Key': 'key=='
-      }
+        'Sec-WebSocket-Key': 'key==',
+      },
     });
   }
 
@@ -530,5 +530,5 @@ function fires(promise, error, timeoutMs) {
 }
 
 module.exports = {
-  NodeInstance
+  NodeInstance,
 };

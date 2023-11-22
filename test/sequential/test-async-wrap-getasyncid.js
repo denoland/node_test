@@ -66,6 +66,8 @@ const { getSystemErrorName } = require('util');
     delete providers.FIXEDSIZEBLOBCOPY;
     delete providers.RANDOMPRIMEREQUEST;
     delete providers.CHECKPRIMEREQUEST;
+    delete providers.QUIC_LOGSTREAM;
+    delete providers.QUIC_PACKET;
 
     const objKeys = Object.keys(providers);
     if (objKeys.length > 0)
@@ -290,7 +292,7 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
 
   // TLSWrap is exposed, but needs to be instantiated via tls_wrap.wrap().
   const tls_wrap = internalBinding('tls_wrap');
-  testInitialized(tls_wrap.wrap(tcp, credentials.context, true), 'TLSWrap');
+  testInitialized(tls_wrap.wrap(tcp, credentials.context, true, false), 'TLSWrap');
 }
 
 {
