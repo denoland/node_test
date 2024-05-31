@@ -13,8 +13,8 @@ const { createConnection, createServer } = require('net');
 // Purposely not using setDefaultAutoSelectFamilyAttemptTimeout here to test the
 // parameter is correctly used in options.
 //
-// Some of the windows machines in the CI need more time to establish connection
-const autoSelectFamilyAttemptTimeout = common.platformTimeout(common.isWindows ? 1500 : 250);
+// Some of the machines in the CI need more time to establish connection
+const autoSelectFamilyAttemptTimeout = common.defaultAutoSelectFamilyAttemptTimeout;
 
 function _lookup(resolver, hostname, options, cb) {
   resolver.resolve(hostname, 'ANY', (err, replies) => {
@@ -282,6 +282,8 @@ if (common.hasIPv6) {
           assert.strictEqual(error.message, `connect ECONNREFUSED ::1:${port}`);
         } else if (error.code === 'EAFNOSUPPORT') {
           assert.strictEqual(error.message, `connect EAFNOSUPPORT ::1:${port} - Local (undefined:undefined)`);
+        } else if (error.code === 'EUNATCH') {
+          assert.strictEqual(error.message, `connect EUNATCH ::1:${port} - Local (:::0)`);
         } else {
           assert.strictEqual(error.code, 'EADDRNOTAVAIL');
           assert.strictEqual(error.message, `connect EADDRNOTAVAIL ::1:${port} - Local (:::0)`);

@@ -26,6 +26,7 @@ const process = global.process;  // Some tests tamper with the process global.
 const assert = require('assert');
 const { exec, execSync, spawn, spawnSync } = require('child_process');
 const fs = require('fs');
+const net = require('net');
 // Do not require 'os' until needed so that test-os-checked-function can
 // monkey patch it. If 'os' is required here, that test will fail.
 const path = require('path');
@@ -56,7 +57,10 @@ const hasCrypto = Boolean(process.versions.openssl) &&
                   !process.env.NODE_SKIP_CRYPTO;
 
 const hasOpenSSL3 = hasCrypto &&
-    require('crypto').constants.OPENSSL_VERSION_NUMBER >= 805306368;
+    require('crypto').constants.OPENSSL_VERSION_NUMBER >= 0x30000000;
+
+const hasOpenSSL31 = hasCrypto &&
+    require('crypto').constants.OPENSSL_VERSION_NUMBER >= 0x30100000;
 
 const hasQuic = hasCrypto && !!process.config.variables.openssl_quic;
 
@@ -119,7 +123,6 @@ if (process.argv.length === 2 &&
 }
 
 const isWindows = process.platform === 'win32';
-const isAIX = process.platform === 'aix';
 const isSunOS = process.platform === 'sunos';
 const isFreeBSD = process.platform === 'freebsd';
 const isOpenBSD = process.platform === 'openbsd';
@@ -141,6 +144,14 @@ const isPi = (() => {
 })();
 
 const isDumbTerminal = process.env.TERM === 'dumb';
+
+// When using high concurrency or in the CI we need much more time for each connection attempt
+const defaultAutoSelectFamilyAttemptTimeout = platformTimeout(2500);
+// Since this is also used by tools outside of the test suite,
+// make sure setDefaultAutoSelectFamilyAttemptTimeout
+if (typeof net.setDefaultAutoSelectFamilyAttemptTimeout === 'function') {
+  net.setDefaultAutoSelectFamilyAttemptTimeout(platformTimeout(defaultAutoSelectFamilyAttemptTimeout));
+}
 
 const buildType = process.config.target_defaults ?
   process.config.target_defaults.default_configuration :
@@ -262,7 +273,7 @@ function platformTimeout(ms) {
   if (process.features.debug)
     ms = multipliers.two * ms;
 
-  if (isAIX)
+  if (exports.isAIX || exports.isIBMi)
     return multipliers.two * ms; // Default localhost speed is slower on AIX
 
   if (isPi)
@@ -350,6 +361,9 @@ if (global.ReadableStream) {
     global.DecompressionStream,
   );
 }
+if (global.WebSocket) {
+  knownGlobals.push(WebSocket);
+}
 
 function allowGlobals(...allowlist) {
   knownGlobals = knownGlobals.concat(allowlist);
@@ -365,7 +379,9 @@ if (process.env.NODE_TEST_KNOWN_GLOBALS !== '0') {
     const leaked = [];
 
     for (const val in global) {
-      if (!knownGlobals.includes(global[val])) {
+      // globalThis.crypto is a getter that throws if Node.js was compiled
+      // without OpenSSL.
+      if (val !== 'crypto' && !knownGlobals.includes(global[val])) {
         leaked.push(val);
       }
     }
@@ -698,9 +714,8 @@ function expectsError(validator, exact) {
       assert.fail(`Expected one argument, got ${inspect(args)}`);
     }
     const error = args.pop();
-    const descriptor = Object.getOwnPropertyDescriptor(error, 'message');
     // The error message should be non-enumerable
-    assert.strictEqual(descriptor.enumerable, false);
+    assert.strictEqual(Object.prototype.propertyIsEnumerable.call(error, 'message'), false);
 
     assert.throws(() => { throw error; }, validator);
     return true;
@@ -793,7 +808,7 @@ function invalidArgTypeHelper(input) {
   if (input == null) {
     return ` Received ${input}`;
   }
-  if (typeof input === 'function' && input.name) {
+  if (typeof input === 'function') {
     return ` Received function ${input.name}`;
   }
   if (typeof input === 'object') {
@@ -883,26 +898,67 @@ function spawnPromisified(...args) {
   });
 }
 
+function getPrintedStackTrace(stderr) {
+  const lines = stderr.split('\n');
+
+  let state = 'initial';
+  const result = {
+    message: [],
+    nativeStack: [],
+    jsStack: [],
+  };
+  for (let i = 0; i < lines.length; ++i) {
+    const line = lines[i].trim();
+    if (line.length === 0) {
+      continue;  // Skip empty lines.
+    }
+
+    switch (state) {
+      case 'initial':
+        result.message.push(line);
+        if (line.includes('Native stack trace')) {
+          state = 'native-stack';
+        } else {
+          result.message.push(line);
+        }
+        break;
+      case 'native-stack':
+        if (line.includes('JavaScript stack trace')) {
+          state = 'js-stack';
+        } else {
+          result.nativeStack.push(line);
+        }
+        break;
+      case 'js-stack':
+        result.jsStack.push(line);
+        break;
+    }
+  }
+  return result;
+}
+
 const common = {
   allowGlobals,
   buildType,
   canCreateSymLink,
   childShouldThrowAndAbort,
   createZeroFilledFile,
+  defaultAutoSelectFamilyAttemptTimeout,
   expectsError,
   expectWarning,
   gcUntil,
   getArrayBufferViews,
   getBufferSources,
   getCallSite,
+  getPrintedStackTrace,
   getTTYfd,
   hasIntl,
   hasCrypto,
   hasOpenSSL3,
+  hasOpenSSL31,
   hasQuic,
   hasMultiLocalhost,
   invalidArgTypeHelper,
-  isAIX,
   isAlive,
   isAsan,
   isDumbTerminal,
@@ -946,7 +1002,14 @@ const common = {
 
   get hasIPv6() {
     const iFaces = require('os').networkInterfaces();
-    const re = isWindows ? /Loopback Pseudo-Interface/ : /lo/;
+    let re;
+    if (isWindows) {
+      re = /Loopback Pseudo-Interface/;
+    } else if (this.isIBMi) {
+      re = /\*LOOPBACK/;
+    } else {
+      re = /lo/;
+    }
     return Object.keys(iFaces).some((name) => {
       return re.test(name) &&
              iFaces[name].some(({ family }) => family === 'IPv6');
@@ -966,7 +1029,12 @@ const common = {
   },
 
   // On IBMi, process.platform and os.platform() both return 'aix',
+  // when built with Python versions earlier than 3.9.
   // It is not enough to differentiate between IBMi and real AIX system.
+  get isAIX() {
+    return require('os').type() === 'AIX';
+  },
+
   get isIBMi() {
     return require('os').type() === 'OS400';
   },

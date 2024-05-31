@@ -5,7 +5,7 @@
 import $ from "https://deno.land/x/dax@0.31.1/mod.ts";
 
 // The version to vendor
-const tag = "v18.18.2";
+const tag = "v20.11.1";
 
 await $`rm -rf node`;
 await $`git clone --depth 1 --sparse --branch ${tag} --single-branch https://github.com/nodejs/node.git`;

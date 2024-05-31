@@ -16,8 +16,8 @@ const {
 
 const { once } = require('events');
 
-const { promisify, inspect } = require('util');
-const delay = promisify(setTimeout);
+const { inspect } = require('util');
+const { setTimeout: delay } = require('timers/promises');
 
 // The globals are defined.
 ok(Event);
@@ -613,6 +613,15 @@ let asyncTest = Promise.resolve();
   target.addEventListener('foo', () => output.push(4));
   target.dispatchEvent(new Event('foo'));
   deepStrictEqual(output, [1, 2, 3, 4]);
+}
+{
+  const target = new EventTarget();
+  defineEventHandler(target, 'foo', 'bar');
+  const output = [];
+  target.addEventListener('bar', () => output.push(1));
+  target.onfoo = () => output.push(2);
+  target.dispatchEvent(new Event('bar'));
+  deepStrictEqual(output, [1, 2]);
 }
 {
   const et = new EventTarget();
