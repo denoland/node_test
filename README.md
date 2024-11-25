@@ -2,7 +2,7 @@
 
 ## Update the version
 
-Modify the verion number in `vendor.ts`, and run:
+Modify the verion number in `node_version.ts`, and run:
 
 ```
 deno task vendor

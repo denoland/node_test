@@ -1,11 +1,12 @@
-// Copyright 2023 the Deno authors. All rights reserved. MIT license.
+// Copyright 2023-2024 the Deno authors. All rights reserved. MIT license.
 
 /** This scripts vendors the test/ dir of nodejs repository to local ./test dir */
 
 import $ from "https://deno.land/x/dax@0.31.1/mod.ts";
+import { version } from "./node_version.ts";
 
 // The version to vendor
-const tag = "v20.11.1";
+const tag = "v" + version;
 
 await $`rm -rf node`;
 await $`git clone --depth 1 --sparse --branch ${tag} --single-branch https://github.com/nodejs/node.git`;
