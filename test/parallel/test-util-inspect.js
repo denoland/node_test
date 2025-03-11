@@ -770,23 +770,25 @@ assert.strictEqual(util.inspect(-5e-324), '-5e-324');
 // Note: Symbols are not supported by `Error#toString()` which is called by
 // accessing the `stack` property.
 [
-  [404, '404: foo', '[404]'],
-  [0, '0: foo', '[RangeError: foo]'],
-  [0n, '0: foo', '[RangeError: foo]'],
+  [404, '404 [RangeError]: foo', '[404]'],
+  [0, '0 [RangeError]: foo', '[RangeError: foo]'],
+  [0n, '0 [RangeError]: foo', '[RangeError: foo]'],
   [null, 'null: foo', '[RangeError: foo]'],
   [undefined, 'RangeError: foo', '[RangeError: foo]'],
-  [false, 'false: foo', '[RangeError: foo]'],
+  [false, 'false [RangeError]: foo', '[RangeError: foo]'],
   ['', 'foo', '[RangeError: foo]'],
-  [[1, 2, 3], '1,2,3: foo', '[1,2,3]'],
+  [[1, 2, 3], '1,2,3 [RangeError]: foo', '[[\n  1,\n  2,\n  3\n]]'],
 ].forEach(([value, outputStart, stack]) => {
   let err = new RangeError('foo');
   err.name = value;
+  const result = util.inspect(err);
   assert(
-    util.inspect(err).startsWith(outputStart),
+    result.startsWith(outputStart),
     util.format(
-      'The name set to %o did not result in the expected output "%s"',
+      'The name set to %o did not result in the expected output "%s", got "%s"',
       value,
-      outputStart
+      outputStart,
+      result.split('\n')[0]
     )
   );
 
@@ -1263,9 +1265,9 @@ if (typeof Symbol !== 'undefined') {
 // a bonafide native Promise.
 {
   const oldPromise = Promise;
-  global.Promise = function() { this.bar = 42; };
+  globalThis.Promise = function() { this.bar = 42; };
   assert.strictEqual(util.inspect(new Promise()), '{ bar: 42 }');
-  global.Promise = oldPromise;
+  globalThis.Promise = oldPromise;
 }
 
 // Test Map iterators.
@@ -1462,7 +1464,7 @@ if (typeof Symbol !== 'undefined') {
 }
 
 {
-  const x = new function() {}; // eslint-disable-line new-parens
+  const x = new function() {}; // eslint-disable-line @stylistic/js/new-parens
   assert.strictEqual(util.inspect(x), '{}');
 }
 
@@ -1643,6 +1645,15 @@ util.inspect(process);
   }
 
   assert.throws(() => util.inspect(new ThrowingClass()), /toStringTag error/);
+
+  const y = {
+    get [Symbol.toStringTag]() {
+      return JSON.stringify(this);
+    }
+  };
+  const x = { y };
+  y.x = x;
+  assert.throws(() => util.inspect(x), /TypeError: Converting circular structure to JSON/);
 
   class NotStringClass {
     get [Symbol.toStringTag]() {
@@ -2056,7 +2067,7 @@ assert.strictEqual(util.inspect('"\'${a}'), "'\"\\'${a}'");
 
 // Verify that classes are properly inspected.
 [
-  /* eslint-disable spaced-comment, no-multi-spaces, brace-style */
+  /* eslint-disable @stylistic/js/spaced-comment, @stylistic/js/no-multi-spaces, @stylistic/js/brace-style */
   // The whitespace is intentional.
   [class   { }, '[class (anonymous)]'],
   [class extends Error { log() {} }, '[class (anonymous) extends Error]'],
@@ -2064,14 +2075,14 @@ assert.strictEqual(util.inspect('"\'${a}'), "'\"\\'${a}'");
    '[class A]'],
   [class
   // Random { // comments /* */ are part of the toString() result
-  /* eslint-disable-next-line space-before-blocks */
+  /* eslint-disable-next-line @stylistic/js/space-before-blocks */
   äß/**/extends/*{*/TypeError{}, '[class äß extends TypeError]'],
   /* The whitespace and new line is intended! */
   // Foobar !!!
   [class X   extends /****/ Error
   // More comments
   {}, '[class X extends Error]'],
-  /* eslint-enable spaced-comment, no-multi-spaces, brace-style */
+  /* eslint-enable @stylistic/js/spaced-comment, @stylistic/js/no-multi-spaces, @stylistic/js/brace-style */
 ].forEach(([clazz, string]) => {
   const inspected = util.inspect(clazz);
   assert.strictEqual(inspected, string);
@@ -2111,7 +2122,7 @@ assert.strictEqual(util.inspect('"\'${a}'), "'\"\\'${a}'");
 
 // "class" properties should not be detected as "class".
 {
-  // eslint-disable-next-line space-before-function-paren
+  // eslint-disable-next-line @stylistic/js/space-before-function-paren
   let obj = { class () {} };
   assert.strictEqual(
     util.inspect(obj),
@@ -2920,7 +2931,7 @@ assert.strictEqual(
   try {
     const trace = require('trace_events').createTracing({ categories: ['fo'] });
     const actualDepth0 = util.inspect({ trace }, { depth: 0 });
-    assert.strictEqual(actualDepth0, '{ trace: [Tracing] }');
+    assert.strictEqual(actualDepth0, '{ trace: Tracing {} }');
     const actualDepth1 = util.inspect({ trace }, { depth: 1 });
     assert.strictEqual(
       actualDepth1,
@@ -3170,7 +3181,7 @@ assert.strictEqual(
   }
 
   // Consistency check.
-  assert(fullObjectGraph(global).has(Function.prototype));
+  assert(fullObjectGraph(globalThis).has(Function.prototype));
 }
 
 {
@@ -3215,7 +3226,7 @@ assert.strictEqual(
     '[GeneratorFunction: generator] {\n' +
     '  [length]: 0,\n' +
     "  [name]: 'generator',\n" +
-    "  [prototype]: Object [Generator] { [Symbol(Symbol.toStringTag)]: 'Generator' },\n" + // eslint-disable-line max-len
+    "  [prototype]: Object [Generator] { [Symbol(Symbol.toStringTag)]: 'Generator' },\n" + // eslint-disable-line @stylistic/js/max-len
     "  [Symbol(Symbol.toStringTag)]: 'GeneratorFunction'\n" +
     '}'
   );
@@ -3313,4 +3324,107 @@ assert.strictEqual(
       throw new Error();
     }
   }), '{ [Symbol(Symbol.iterator)]: [Getter] }');
+}
+
+{
+  const o = {};
+  const { prototype: BuiltinPrototype } = Object;
+  const desc = Reflect.getOwnPropertyDescriptor(BuiltinPrototype, 'constructor');
+  Object.defineProperty(BuiltinPrototype, 'constructor', {
+    get: () => BuiltinPrototype,
+    configurable: true,
+  });
+  assert.strictEqual(
+    util.inspect(o),
+    '{}',
+  );
+  Object.defineProperty(BuiltinPrototype, 'constructor', desc);
+}
+
+{
+  const o = { f() {} };
+  const { prototype: BuiltinPrototype } = Function;
+  const desc = Reflect.getOwnPropertyDescriptor(BuiltinPrototype, 'constructor');
+  Object.defineProperty(BuiltinPrototype, 'constructor', {
+    get: () => BuiltinPrototype,
+    configurable: true,
+  });
+  assert.strictEqual(
+    util.inspect(o),
+    '{ f: [Function: f] }',
+  );
+  Object.defineProperty(BuiltinPrototype, 'constructor', desc);
+}
+{
+  const prototypes = [
+    Array.prototype,
+    ArrayBuffer.prototype,
+    Buffer.prototype,
+    Function.prototype,
+    Map.prototype,
+    Object.prototype,
+    Reflect.getPrototypeOf(Uint8Array.prototype),
+    Set.prototype,
+    Uint8Array.prototype,
+  ];
+  const descriptors = new Map();
+  const buffer = Buffer.from('Hello');
+  const o = {
+    arrayBuffer: new ArrayBuffer(), buffer, typedArray: Uint8Array.from(buffer),
+    array: [], func() {}, set: new Set([1]), map: new Map(),
+  };
+  for (const BuiltinPrototype of prototypes) {
+    descriptors.set(BuiltinPrototype, Reflect.getOwnPropertyDescriptor(BuiltinPrototype, 'constructor'));
+    Object.defineProperty(BuiltinPrototype, 'constructor', {
+      get: () => BuiltinPrototype,
+      configurable: true,
+    });
+  }
+  assert.strictEqual(
+    util.inspect(o),
+    '{\n' +
+    '  arrayBuffer: ArrayBuffer { [Uint8Contents]: <>, byteLength: 0 },\n' +
+    '  buffer: <Buffer 48 65 6c 6c 6f>,\n' +
+    '  typedArray: TypedArray(5) [Uint8Array] [ 72, 101, 108, 108, 111 ],\n' +
+    '  array: [],\n' +
+    '  func: [Function: func],\n' +
+    '  set: Set(1) { 1 },\n' +
+    '  map: Map(0) {}\n' +
+    '}',
+  );
+  for (const [BuiltinPrototype, desc] of descriptors) {
+    Object.defineProperty(BuiltinPrototype, 'constructor', desc);
+  }
+}
+
+{
+  function f() {}
+  Object.defineProperty(f, 'name', { value: Symbol('f') });
+
+  assert.strictEqual(
+    util.inspect(f),
+    '[Function: Symbol(f)]',
+  );
+}
+
+{
+  const error = new EvalError();
+  const re = /a/g;
+  error.name = re;
+  assert.strictEqual(error.name, re);
+  assert.strictEqual(
+    util.inspect(error),
+    `${re} [EvalError]
+${error.stack.split('\n').slice(1).join('\n')}`,
+  );
+}
+
+{
+  const error = new Error();
+  error.stack = [Symbol('foo')];
+
+  assert.strictEqual(
+    inspect(error),
+    '[[\n  Symbol(foo)\n]]'
+  );
 }

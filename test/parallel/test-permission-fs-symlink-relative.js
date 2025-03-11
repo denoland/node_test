@@ -1,10 +1,16 @@
-// Flags: --experimental-permission --allow-fs-read=* --allow-fs-write=*
+// Flags: --permission --allow-fs-read=* --allow-fs-write=*
 'use strict';
 
 const common = require('../common');
-common.skipIfWorker();
+
+const { isMainThread } = require('worker_threads');
+
+if (!isMainThread) {
+  common.skip('This test only works on a main thread');
+}
 
 const assert = require('assert');
+const path = require('path');
 const { symlinkSync, symlink, promises: { symlink: symlinkAsync } } = require('fs');
 
 const error = {
@@ -22,6 +28,19 @@ for (const targetString of ['a', './b/c', '../d', 'e/../f', 'C:drive-relative', 
         assert.match(err.message, error.message);
       }));
       assert.rejects(() => symlinkAsync(target, path), error).then(common.mustCall());
+    }
+  }
+}
+
+// Absolute should not throw
+for (const targetString of [path.resolve('.')]) {
+  for (const target of [targetString, Buffer.from(targetString)]) {
+    for (const path of [__filename]) {
+      symlink(target, path, common.mustCall((err) => {
+        assert(err);
+        assert.strictEqual(err.code, 'EEXIST');
+        assert.match(err.message, /file already exists/);
+      }));
     }
   }
 }

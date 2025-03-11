@@ -47,8 +47,6 @@ const { getSystemErrorName } = require('util');
     delete providers.WORKER;
     // TODO(danbev): Test for these
     delete providers.JSUDPWRAP;
-    if (!common.isMainThread)
-      delete providers.INSPECTORJSBINDING;
     delete providers.KEYPAIRGENREQUEST;
     delete providers.KEYGENREQUEST;
     delete providers.KEYEXPORTREQUEST;
@@ -68,6 +66,10 @@ const { getSystemErrorName } = require('util');
     delete providers.CHECKPRIMEREQUEST;
     delete providers.QUIC_LOGSTREAM;
     delete providers.QUIC_PACKET;
+    delete providers.QUIC_UDP;
+    delete providers.QUIC_ENDPOINT;
+    delete providers.QUIC_SESSION;
+    delete providers.QUIC_STREAM;
 
     const objKeys = Object.keys(providers);
     if (objKeys.length > 0)
@@ -310,13 +312,6 @@ if (common.hasCrypto) { // eslint-disable-line node-core/crypto-check
   req.oncomplete = () => handle.close();
   handle.send(req, [Buffer.alloc(1)], 1, req.port, req.address, true);
   testInitialized(req, 'SendWrap');
-}
-
-if (process.features.inspector && common.isMainThread) {
-  const binding = internalBinding('inspector');
-  const handle = new binding.Connection(() => {});
-  testInitialized(handle, 'Connection');
-  handle.disconnect();
 }
 
 // PROVIDER_HEAPDUMP
