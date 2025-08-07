@@ -198,12 +198,14 @@ test('deepEqual should pass for these weird cases', () => {
 function assertDeepAndStrictEqual(a, b) {
   assert.deepEqual(a, b);
   assert.deepStrictEqual(a, b);
+  assert.partialDeepStrictEqual(a, b);
 
   assert.deepEqual(b, a);
   assert.deepStrictEqual(b, a);
+  assert.partialDeepStrictEqual(b, a);
 }
 
-function assertNotDeepOrStrict(a, b, err) {
+function assertNotDeepOrStrict(a, b, err, options) {
   assert.throws(
     () => assert.deepEqual(a, b),
     err || re`${a}\n\nshould loosely deep-equal\n\n${b}`
@@ -221,6 +223,15 @@ function assertNotDeepOrStrict(a, b, err) {
     () => assert.deepStrictEqual(b, a),
     err || { code: 'ERR_ASSERTION' }
   );
+  const partial = () => {
+    assert.partialDeepStrictEqual(b, a);
+    assert.partialDeepStrictEqual(a, b);
+  };
+  if (options?.partial === 'pass') {
+    partial();
+  } else {
+    assert.throws(partial, err || { code: 'ERR_ASSERTION' });
+  }
 }
 
 function assertOnlyDeepEqual(a, b, err) {
@@ -395,6 +406,18 @@ test('es6 Maps and Sets', () => {
     new Set([xarray, ['y']]),
     new Set([xarray, ['y']])
   );
+  assertDeepAndStrictEqual(
+    new Set([2, xarray, ['y'], 1]),
+    new Set([xarray, ['y'], 1, 2])
+  );
+  assertDeepAndStrictEqual(
+    new Set([{ a: 1 }, { a: 3 }, { a: 2 }, { a: 4 }]),
+    new Set([{ a: 2 }, { a: 1 }, { a: 4 }, { a: 3 }])
+  );
+  assertNotDeepOrStrict(
+    new Set([{ a: 1 }, { a: 2 }, { a: 3 }, { a: 4 }]),
+    new Set([{ a: 1 }, { a: 2 }, { a: 3 }, { a: 5 }])
+  );
   assertOnlyDeepEqual(
     new Set([null, '', 1n, 5, 2n, false]),
     new Set([undefined, 0, 5n, true, '2', '-000'])
@@ -550,7 +573,7 @@ test('GH-14441. Circular structures should be consistent', () => {
     b.a = {};
     b.a.a = a;
 
-    assertDeepAndStrictEqual(a, b);
+    assertNotDeepOrStrict(a, b);
   }
 
   {
@@ -560,7 +583,7 @@ test('GH-14441. Circular structures should be consistent', () => {
     b.a = b;
     const c = {};
     c.a = a;
-    assertDeepAndStrictEqual(b, c);
+    assertNotDeepOrStrict(b, c);
   }
 
   {
@@ -570,7 +593,7 @@ test('GH-14441. Circular structures should be consistent', () => {
     b.add(b);
     const c = new Set();
     c.add(a);
-    assertDeepAndStrictEqual(b, c);
+    assertNotDeepOrStrict(b, c);
   }
 });
 
@@ -598,16 +621,17 @@ test('Handle sparse arrays', () => {
   /* eslint-disable no-sparse-arrays */
   assertDeepAndStrictEqual([1, , , 3], [1, , , 3]);
   assertNotDeepOrStrict([1, , , 3], [1, , , 3, , , ]);
+  assertNotDeepOrStrict([1, , , 3], [1, undefined, , 3]);
   /* eslint-enable no-sparse-arrays */
   const a = new Array(3);
   const b = new Array(3);
   a[2] = true;
   b[1] = true;
-  assertNotDeepOrStrict(a, b);
+  assertNotDeepOrStrict(a, b, AssertionError, { partial: 'pass' });
   b[2] = true;
   assertNotDeepOrStrict(a, b);
   a[0] = true;
-  assertNotDeepOrStrict(a, b);
+  assertNotDeepOrStrict(a, b, AssertionError, { partial: 'pass' });
 });
 
 test('Handle different error messages', () => {
@@ -1246,6 +1270,14 @@ test('Verify object types being identical on both sides', () => {
   });
   assertNotDeepOrStrict(a, b);
 
+  a = new ArrayBuffer(3);
+  b = new Uint8Array(3);
+  Object.setPrototypeOf(b, ArrayBuffer.prototype);
+  Object.defineProperty(b, Symbol.toStringTag, {
+    value: 'ArrayBuffer'
+  });
+  assertNotDeepOrStrict(a, b);
+
   a = new Date(2000);
   b = Object.create(
     Object.getPrototypeOf(a),
@@ -1495,46 +1527,107 @@ test('Detects differences in deeply nested arrays instead of seeing a new object
   );
 });
 
-// check URL
-{
-  const a = new URL('http://foo');
-  const b = new URL('http://bar');
+test('URLs', () => {
+  // check URL
+  {
+    const a = new URL('http://foo');
+    const b = new URL('http://bar');
 
-  assertNotDeepOrStrict(a, b);
-}
+    assertNotDeepOrStrict(a, b);
+  }
 
-{
-  const a = new URL('http://foo');
-  const b = new URL('http://foo');
+  {
+    const a = new URL('http://foo');
+    const b = new URL('http://foo');
 
+    assertDeepAndStrictEqual(a, b);
+  }
+
+  {
+    const a = new URL('http://foo');
+    const b = new URL('http://foo');
+    a.bar = 1;
+    b.bar = 2;
+    assertNotDeepOrStrict(a, b);
+  }
+
+  {
+    const a = new URL('http://foo');
+    const b = new URL('http://foo');
+    a.bar = 1;
+    b.bar = 1;
+    assertDeepAndStrictEqual(a, b);
+  }
+
+  {
+    const a = new URL('http://foo');
+    const b = new URL('http://bar');
+    assert.throws(
+      () => assert.deepStrictEqual(a, b),
+      {
+        code: 'ERR_ASSERTION',
+        name: 'AssertionError',
+        message: /http:\/\/bar/
+      }
+    );
+  }
+});
+
+test('Own property constructor properties should check against the original prototype', () => {
+  const a = { constructor: { name: 'Foo' } };
+  const b = { constructor: { name: 'Foo' } };
   assertDeepAndStrictEqual(a, b);
-}
 
-{
-  const a = new URL('http://foo');
-  const b = new URL('http://foo');
-  a.bar = 1;
-  b.bar = 2;
-  assertNotDeepOrStrict(a, b);
-}
-
-{
-  const a = new URL('http://foo');
-  const b = new URL('http://foo');
-  a.bar = 1;
-  b.bar = 1;
+  let prototype = {};
+  Object.setPrototypeOf(a, prototype);
+  Object.setPrototypeOf(b, prototype);
   assertDeepAndStrictEqual(a, b);
-}
 
-{
-  const a = new URL('http://foo');
-  const b = new URL('http://bar');
-  assert.throws(
-    () => assert.deepStrictEqual(a, b),
-    {
-      code: 'ERR_ASSERTION',
-      name: 'AssertionError',
-      message: /http:\/\/bar/
-    }
-  );
-}
+  Object.setPrototypeOf(b, {});
+  assertNotDeepOrStrict(a, {});
+
+  prototype = { __proto__: null };
+  Object.setPrototypeOf(a, prototype);
+  Object.setPrototypeOf(b, prototype);
+  assertDeepAndStrictEqual(a, b);
+
+  Object.setPrototypeOf(b, { __proto__: null });
+  assert.notDeepStrictEqual(a, b);
+  assert.notDeepStrictEqual(b, a);
+
+  // Turn off no-restricted-properties because we are testing deepEqual!
+  /* eslint-disable no-restricted-properties */
+  assert.deepEqual(a, b);
+  assert.deepEqual(b, a);
+});
+
+test('Inherited null prototype without own constructor properties should check the correct prototype', () => {
+  const a = { foo: { name: 'Foo' } };
+  const b = { foo: { name: 'Foo' } };
+  assertDeepAndStrictEqual(a, b);
+
+  let prototype = {};
+  Object.setPrototypeOf(a, prototype);
+  Object.setPrototypeOf(b, prototype);
+  assertDeepAndStrictEqual(a, b);
+
+  Object.setPrototypeOf(b, {});
+  assertNotDeepOrStrict(a, {});
+
+  prototype = { __proto__: null };
+  Object.setPrototypeOf(a, prototype);
+  Object.setPrototypeOf(b, prototype);
+  assertDeepAndStrictEqual(a, b);
+
+  Object.setPrototypeOf(b, { __proto__: null });
+  assert.notDeepStrictEqual(a, b);
+  assert.notDeepStrictEqual(b, a);
+
+  assert.notDeepStrictEqual({ __proto__: null }, { __proto__: { __proto__: null } });
+  assert.notDeepStrictEqual({ __proto__: { __proto__: null } }, { __proto__: null });
+
+  // Turn off no-restricted-properties because we are testing deepEqual!
+  /* eslint-disable no-restricted-properties */
+  assert.deepEqual(a, b);
+  assert.deepEqual(b, a);
+});

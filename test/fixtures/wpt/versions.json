@@ -4,7 +4,7 @@
     "path": "common"
   },
   "compression": {
-    "commit": "da8d6860b22271d8ef4dc7894509692aaab9adf8",
+    "commit": "67880a4eb83ca9aa732eec4b35a1971ff5bf37ff",
     "path": "compression"
   },
   "console": {
@@ -52,7 +52,7 @@
     "path": "html/webappapis/timers"
   },
   "interfaces": {
-    "commit": "e90ece61d6e7ff84a0dc9c496588690e6a61cb17",
+    "commit": "e1b27be06b43787a001b7297c4e0fabdd276560f",
     "path": "interfaces"
   },
   "performance-timeline": {
@@ -72,11 +72,11 @@
     "path": "streams"
   },
   "url": {
-    "commit": "a23788b77a947304b2b3159d8efda492727ab623",
+    "commit": "9504a83e014b6b26d6c09eaee89c6b83cb7410c2",
     "path": "url"
   },
   "urlpattern": {
-    "commit": "ef6d83d789483763207af8cedcbf1f3c1317b981",
+    "commit": "f07d05f49c679a62dd112e18aa07405859745952",
     "path": "urlpattern"
   },
   "user-timing": {
@@ -92,7 +92,7 @@
     "path": "wasm/webapi"
   },
   "WebCryptoAPI": {
-    "commit": "3e3374efde7ce73d551ea908d52d0afab046971a",
+    "commit": "591c95ce6174690b92833cd92859ce2807714591",
     "path": "WebCryptoAPI"
   },
   "webidl/ecmascript-binding/es-exceptions": {

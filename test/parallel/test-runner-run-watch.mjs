@@ -189,6 +189,8 @@ async function testWatch(
   action === 'rename2' && await testRename();
   action === 'delete' && await testDelete();
   action === 'create' && await testCreate();
+
+  return runs;
 }
 
 describe('test runner watch mode', () => {
@@ -240,6 +242,70 @@ describe('test runner watch mode', () => {
     async () => {
       await testWatch({ action: 'create', fileToCreate: 'new-test-file.test.js' });
     });
+
+  // This test is flaky by its nature as it relies on the timing of 2 different runs
+  // considering the number of digits in the duration_ms is 9
+  // the chances of having the same duration_ms are very low
+  // but not impossible
+  // In case of costant failures, consider increasing the number of tests
+  it('should recalculate the run duration on a watch restart', async () => {
+    const testRuns = await testWatch({ file: 'test.js', fileToUpdate: 'test.js' });
+    const durations = testRuns.map((run) => {
+      const runDuration = run.match(/# duration_ms\s([\d.]+)/);
+      return runDuration;
+    });
+    assert.notDeepStrictEqual(durations[0][1], durations[1][1]);
+  });
+
+  it('should emit test:watch:restarted when file is updated', async () => {
+    let alreadyDrained = false;
+    const events = [];
+    const testWatchRestarted = common.mustCall(1);
+
+    const controller = new AbortController();
+    const stream = run({
+      cwd: tmpdir.path,
+      watch: true,
+      signal: controller.signal,
+    }).on('data', function({ type }) {
+      events.push(type);
+      if (type === 'test:watch:restarted') {
+        testWatchRestarted();
+      }
+      if (type === 'test:watch:drained') {
+        if (alreadyDrained) {
+          controller.abort();
+        }
+        alreadyDrained = true;
+      }
+    });
+
+    await once(stream, 'test:watch:drained');
+
+    writeFileSync(join(tmpdir.path, 'test.js'), fixtureContent['test.js']);
+
+    // eslint-disable-next-line no-unused-vars
+    for await (const _ of stream);
+
+    assert.partialDeepStrictEqual(events, [
+      'test:watch:drained',
+      'test:watch:restarted',
+      'test:watch:drained',
+    ]);
+  });
+
+  it('should not emit test:watch:restarted since watch mode is disabled', async () => {
+    const stream = run({
+      cwd: tmpdir.path,
+      watch: false,
+    });
+
+    stream.on('test:watch:restarted', common.mustNotCall());
+    writeFileSync(join(tmpdir.path, 'test.js'), fixtureContent['test.js']);
+
+    // eslint-disable-next-line no-unused-vars
+    for await (const _ of stream);
+  });
 
   describe('test runner watch mode with different cwd', () => {
     it(
