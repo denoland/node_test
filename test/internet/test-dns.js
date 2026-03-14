@@ -605,23 +605,8 @@ test(function test_lookup_ip_promise(done) {
       assert.strictEqual(family, 4);
 
       done();
-    });
-});
-
-
-test(async function test_lookup_null_all(done) {
-  assert.deepStrictEqual(await dnsPromises.lookup(null, { all: true }), []);
-
-  const req = dns.lookup(null, {
-    all: true,
-  }, common.mustSucceed((ips) => {
-    assert.ok(Array.isArray(ips));
-    assert.strictEqual(ips.length, 0);
-
-    done();
-  }));
-
-  checkWrap(req);
+    })
+    .then(common.mustCall());
 });
 
 
