@@ -1,4 +1,4 @@
-// Flags: --permission --allow-fs-read=*
+// Flags: --permission --allow-fs-read=* --allow-fs-write=.
 'use strict';
 
 const common = require('../common');
@@ -33,5 +33,6 @@ const assert = require('assert');
   assert.ok(!process.permission.has('wasi'));
   assert.ok(!process.permission.has('worker'));
   assert.ok(!process.permission.has('inspector'));
+  assert.ok(!process.permission.has('net'));
   assert.ok(!process.permission.has('addon'));
 }

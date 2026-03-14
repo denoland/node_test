@@ -35,7 +35,7 @@ const fixtures = require('../common/fixtures');
 
 if (process.argv.length > 2) {
   console.log(process.argv.slice(2).join(' '));
-  process.exit(0);
+  return;
 }
 
 // Assert that nothing is written to stdout.
@@ -112,6 +112,12 @@ child.exec(...common.escapePOSIXShell`"${process.execPath}" -e ""`, common.mustS
 // "\\-42" should be interpreted as an escaped expression, not a switch.
 child.exec(...common.escapePOSIXShell`"${process.execPath}" -p "\\-42"`, common.mustSucceed((stdout, stderr) => {
   assert.strictEqual(stdout, '-42\n');
+  assert.strictEqual(stderr, '');
+}));
+
+// Long output should not be truncated.
+child.exec(...common.escapePOSIXShell`"${process.execPath}" -p "'1'.repeat(1e5)"`, common.mustSucceed((stdout, stderr) => {
+  assert.strictEqual(stdout, `${'1'.repeat(1e5)}\n`);
   assert.strictEqual(stderr, '');
 }));
 

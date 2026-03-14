@@ -4,7 +4,7 @@ const { mustCall } = require('../common');
 const assert = require('assert');
 const fixtures = require('../common/fixtures');
 const { fork } = require('child_process');
-const { getEventListeners } = require('events');
+const { listenerCount } = require('events');
 
 {
   // Verify default signal
@@ -27,11 +27,11 @@ const { getEventListeners } = require('events');
   // Verify timeout verification
   assert.throws(() => fork(fixtures.path('child-process-stay-alive-forever.js'), {
     timeout: 'badValue',
-  }), /ERR_OUT_OF_RANGE/);
+  }), /ERR_INVALID_ARG_TYPE/);
 
   assert.throws(() => fork(fixtures.path('child-process-stay-alive-forever.js'), {
     timeout: {},
-  }), /ERR_OUT_OF_RANGE/);
+  }), /ERR_INVALID_ARG_TYPE/);
 }
 
 {
@@ -43,8 +43,8 @@ const { getEventListeners } = require('events');
     timeout: 6,
     signal,
   });
-  assert.strictEqual(getEventListeners(signal, 'abort').length, 1);
+  assert.strictEqual(listenerCount(signal, 'abort'), 1);
   cp.on('exit', mustCall(() => {
-    assert.strictEqual(getEventListeners(signal, 'abort').length, 0);
+    assert.strictEqual(listenerCount(signal, 'abort'), 0);
   }));
 }
