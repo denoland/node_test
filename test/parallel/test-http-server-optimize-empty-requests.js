@@ -29,7 +29,7 @@ server.listen(0, common.mustCall(async () => {
   const getRequest = 'GET / HTTP/1.1\r\nHost: localhost\r\n\r\n';
   await makeRequest(getRequest);
 
-  // HEAD request (should always be optimized regardless of headers)
+  // HEAD request without body headers (should be optimized)
   const headRequest = 'HEAD / HTTP/1.1\r\nHost: localhost\r\n\r\n';
   await makeRequest(headRequest);
 
@@ -49,6 +49,10 @@ server.listen(0, common.mustCall(async () => {
   const getWithContentLength = 'GET / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n';
   await makeRequest(getWithContentLength);
 
+  // HEAD request with Content-Length header (should not be optimized)
+  const headWithContentLength = 'HEAD / HTTP/1.1\r\nHost: localhost\r\nContent-Length: 0\r\n\r\n';
+  await makeRequest(headWithContentLength);
+
   // POST request with Transfer-Encoding header (should not be optimized)
   const postWithTransferEncoding = 'POST / HTTP/1.1\r\nHost: localhost\r\nTransfer-Encoding: chunked\r\n\r\n';
   await makeRequest(postWithTransferEncoding);
@@ -59,7 +63,7 @@ server.listen(0, common.mustCall(async () => {
 
   server.close();
 
-  assert.strictEqual(reqs, 8, `Expected 8 requests but got ${reqs}`);
+  assert.strictEqual(reqs, 9, `Expected 9 requests but got ${reqs}`);
   assert.strictEqual(optimizedReqs, 4, `Expected 4 optimized requests but got ${optimizedReqs}`);
 }));
 
