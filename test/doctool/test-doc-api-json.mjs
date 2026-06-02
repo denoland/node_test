@@ -141,7 +141,6 @@ for await (const dirent of await fs.opendir(new URL('../../out/doc/api/', import
   assert.deepStrictEqual(Object.keys(json), ['type', 'source', ...({
     'addons.md': ['introduced_in', 'miscs'],
     'cli.md': ['introduced_in', 'miscs'],
-    'corepack.md': ['introduced_in', 'meta', 'stability', 'stabilityText', 'miscs'],
     'debugger.md': ['introduced_in', 'stability', 'stabilityText', 'miscs'],
     'deprecations.md': ['introduced_in', 'miscs'],
     'documentation.md': ['introduced_in', 'miscs'],
@@ -160,5 +159,5 @@ for await (const dirent of await fs.opendir(new URL('../../out/doc/api/', import
   assert.partialDeepStrictEqual(allExpectedKeys, findAllKeys(json));
 }
 
-assert.strictEqual(numberOfDeprecatedSections, 44); // Increase this number every time a new API is deprecated.
+assert.strictEqual(numberOfDeprecatedSections, 45); // Increase this number every time a new API is deprecated.
 assert.strictEqual(numberOfRemovedAPIs, 46); // Increase this number every time a section is marked as removed.

@@ -31,11 +31,11 @@ function testCipher1(key, iv) {
   // quite small, so there's no harm.
   const cStream = crypto.createCipheriv('des-ede3-cbc', key, iv);
   cStream.end(plaintext);
-  ciph = cStream.read();
+  ciph = cStream.read(cStream.readableLength);
 
   const dStream = crypto.createDecipheriv('des-ede3-cbc', key, iv);
   dStream.end(ciph);
-  txt = dStream.read().toString('utf8');
+  txt = dStream.read(dStream.readableLength).toString('utf8');
 
   assert.strictEqual(txt, plaintext,
                      `streaming cipher with key ${key} and iv ${iv}`);
@@ -62,6 +62,10 @@ function testCipher2(key, iv) {
 
 
 function testCipher3(key, iv) {
+  if (!crypto.getCiphers().includes('id-aes128-wrap')) {
+    common.printSkipMessage(`unsupported id-aes128-wrap test`);
+    return;
+  }
   // Test encryption and decryption with explicit key and iv.
   // AES Key Wrap test vector comes from RFC3394
   const plaintext = Buffer.from('00112233445566778899AABBCCDDEEFF', 'hex');

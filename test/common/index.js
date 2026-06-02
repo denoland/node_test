@@ -35,6 +35,7 @@ const tmpdir = require('./tmpdir');
 const bits = ['arm64', 'loong64', 'mips', 'mipsel', 'ppc64', 'riscv64', 's390x', 'x64']
   .includes(process.arch) ? 64 : 32;
 const hasIntl = !!process.config.variables.v8_enable_i18n_support;
+const hasTemporal = !!process.config.variables.v8_enable_temporal_support;
 
 // small-icu doesn't support non-English locales
 const hasFullICU = (() => {
@@ -69,8 +70,16 @@ const hasCrypto = Boolean(process.versions.openssl) &&
 
 const hasInspector = Boolean(process.features.inspector);
 const hasSQLite = Boolean(process.versions.sqlite);
+const hasFFI = Boolean(process.config.variables.node_use_ffi);
 
 const hasQuic = hasCrypto && !!process.features.quic;
+
+const hasLocalStorage = (() => {
+  // Check enumerable property to avoid triggering the getter which emits a warning.
+  // localStorage is enumerable only when --localstorage-file is provided.
+  const desc = Object.getOwnPropertyDescriptor(globalThis, 'localStorage');
+  return hasSQLite && desc?.enumerable === true;
+})();
 
 /**
  * Parse test metadata from the specified file.
@@ -377,8 +386,10 @@ if (hasCrypto) {
   knownGlobals.add(globalThis.SubtleCrypto);
 }
 
-if (hasSQLite) {
+if (hasLocalStorage) {
   knownGlobals.add(globalThis.localStorage);
+}
+if (hasSQLite) {
   knownGlobals.add(globalThis.sessionStorage);
 }
 
@@ -404,6 +415,11 @@ if (process.env.NODE_TEST_KNOWN_GLOBALS !== '0') {
       // globalThis.crypto is a getter that throws if Node.js was compiled
       // without OpenSSL so we'll skip it if it is not available.
       if (val === 'crypto' && !hasCrypto) {
+        continue;
+      }
+      // globalThis.localStorage is a getter that throws if Node.js was
+      // executed without a --localstorage-file path.
+      if (val === 'localStorage' && !hasLocalStorage) {
         continue;
       }
       if (!knownGlobals.has(globalThis[val])) {
@@ -746,6 +762,12 @@ function skipIfSQLiteMissing() {
   }
 }
 
+function skipIfFFIMissing() {
+  if (!hasFFI) {
+    skip('missing FFI');
+  }
+}
+
 function getArrayBufferViews(buf) {
   const { buffer, byteOffset, byteLength } = buf;
 
@@ -959,11 +981,14 @@ const common = {
   getBufferSources,
   getTTYfd,
   hasIntl,
+  hasTemporal,
   hasFullICU,
   hasCrypto,
   hasQuic,
   hasInspector,
   hasSQLite,
+  hasFFI,
+  hasLocalStorage,
   invalidArgTypeHelper,
   isAlive,
   isASan,
@@ -973,6 +998,7 @@ const common = {
   isOpenBSD,
   isMacOS,
   isPi,
+  isRiscv64,
   isSunOS,
   isWindows,
   localIPv6Hosts,
@@ -994,6 +1020,7 @@ const common = {
   skipIf32Bits,
   skipIfEslintMissing,
   skipIfInspectorDisabled,
+  skipIfFFIMissing,
   skipIfSQLiteMissing,
   spawnPromisified,
   sleepSync,

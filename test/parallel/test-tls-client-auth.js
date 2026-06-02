@@ -82,8 +82,9 @@ connect({
 }, common.mustCall((err, pair, cleanup) => {
   assert.strictEqual(pair.server.err.code,
                      'ERR_SSL_PEER_DID_NOT_RETURN_A_CERTIFICATE');
-  const expectedErr = hasOpenSSL(3, 2) ?
-    'ERR_SSL_SSL/TLS_ALERT_HANDSHAKE_FAILURE' : 'ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE';
+  const expectedErr = hasOpenSSL(4, 0) ?
+    'ERR_SSL_TLS_ALERT_HANDSHAKE_FAILURE' : hasOpenSSL(3, 2) ?
+      'ERR_SSL_SSL/TLS_ALERT_HANDSHAKE_FAILURE' : 'ERR_SSL_SSLV3_ALERT_HANDSHAKE_FAILURE';
   assert.strictEqual(pair.client.err.code,
                      expectedErr);
   return cleanup();
@@ -110,7 +111,10 @@ if (tls.DEFAULT_MAX_VERSION === 'TLSv1.3') connect({
   // and sends a fatal Alert to the client that the client discovers there has
   // been a fatal error.
   pair.client.conn.once('error', common.mustCall((err) => {
-    assert.strictEqual(err.code, 'ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED');
+    const expectedErr = process.features.openssl_is_boringssl ?
+      'ERR_SSL_TLSV1_ALERT_CERTIFICATE_REQUIRED' :
+      'ERR_SSL_TLSV13_ALERT_CERTIFICATE_REQUIRED';
+    assert.strictEqual(err.code, expectedErr);
     cleanup();
   }));
 }));

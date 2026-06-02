@@ -102,17 +102,19 @@ if (!process.features.openssl_is_boringssl) {
   // ECDSA w/ ieee-p1363 signature encoding
   test('ec_secp256k1_public.pem', 'ec_secp256k1_private.pem', 'sha384', false,
        { dsaEncoding: 'ieee-p1363' });
+
+  // DSA w/ der signature encoding
+  test('dsa_public.pem', 'dsa_private.pem', 'sha256',
+       false);
+  test('dsa_public.pem', 'dsa_private.pem', 'sha256',
+       false, { dsaEncoding: 'der' });
+
+  // DSA w/ ieee-p1363 signature encoding
+  test('dsa_public.pem', 'dsa_private.pem', 'sha256', false,
+       { dsaEncoding: 'ieee-p1363' });
+} else {
+  common.printSkipMessage('Skipping unsupported ed448/secp256k1/dsa test cases');
 }
-
-// DSA w/ der signature encoding
-test('dsa_public.pem', 'dsa_private.pem', 'sha256',
-     false);
-test('dsa_public.pem', 'dsa_private.pem', 'sha256',
-     false, { dsaEncoding: 'der' });
-
-// DSA w/ ieee-p1363 signature encoding
-test('dsa_public.pem', 'dsa_private.pem', 'sha256', false,
-     { dsaEncoding: 'ieee-p1363' });
 
 // Test Parallel Execution w/ KeyObject is threadsafe in openssl3
 {
@@ -154,13 +156,16 @@ MCowBQYDK2VuAyEA6pwGRbadNQAI/tYN8+/p/0/hbsdHfOEGr1ADiLVk/Gc=
   const signature = crypto.randomBytes(16);
 
   let expected = /no default digest/;
+  let expectedCode = 'ERR_OSSL_EVP_NO_DEFAULT_DIGEST';
   if (hasOpenSSL3 || process.features.openssl_is_boringssl) {
     expected = /operation[\s_]not[\s_]supported[\s_]for[\s_]this[\s_]keytype/i;
+    expectedCode = 'ERR_OSSL_EVP_OPERATION_NOT_SUPPORTED_FOR_THIS_KEYTYPE';
   }
 
   crypto.verify(undefined, data, untrustedKey, signature, common.mustCall((err) => {
     assert.ok(err);
     assert.match(err.message, expected);
+    assert.strictEqual(err.code, expectedCode);
   }));
 }
 
@@ -171,5 +176,6 @@ MCowBQYDK2VuAyEA6pwGRbadNQAI/tYN8+/p/0/hbsdHfOEGr1ADiLVk/Gc=
   crypto.sign('sha512', 'message', privateKey, common.mustCall((err) => {
     assert.ok(err);
     assert.match(err.message, /digest[\s_]too[\s_]big[\s_]for[\s_]rsa[\s_]key/i);
+    assert.match(err.code, /^ERR_OSSL_.*DIGEST_TOO_BIG_FOR_RSA_KEY$/);
   }));
 }

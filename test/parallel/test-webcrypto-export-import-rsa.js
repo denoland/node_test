@@ -336,7 +336,8 @@ async function testImportSpki({ name, publicUsages }, size, hash, extractable) {
   } else {
     await assert.rejects(
       subtle.exportKey('spki', key), {
-        message: /key is not extractable/
+        message: /key is not extractable/,
+        name: 'InvalidAccessError',
       });
   }
 }
@@ -372,7 +373,8 @@ async function testImportPkcs8(
   } else {
     await assert.rejects(
       subtle.exportKey('pkcs8', key), {
-        message: /key is not extractable/
+        message: /key is not extractable/,
+        name: 'InvalidAccessError',
       });
   }
 
@@ -479,11 +481,13 @@ async function testImportJwk(
   } else {
     await assert.rejects(
       subtle.exportKey('jwk', publicKey), {
-        message: /key is not extractable/
+        message: /key is not extractable/,
+        name: 'InvalidAccessError',
       });
     await assert.rejects(
       subtle.exportKey('jwk', privateKey), {
-        message: /key is not extractable/
+        message: /key is not extractable/,
+        name: 'InvalidAccessError',
       });
   }
 
@@ -596,6 +600,20 @@ async function testImportJwk(
       extractable,
       publicUsages),
     { name: 'DataError', message: 'Invalid keyData' });
+
+  for (const field of ['p', 'q', 'dp', 'dq', 'qi']) {
+    const jwkMissingCrtField = { ...jwk };
+    delete jwkMissingCrtField[field];
+    await assert.rejects(
+      subtle.importKey(
+        'jwk',
+        jwkMissingCrtField,
+        { name, hash },
+        extractable,
+        privateUsages),
+      { name: 'DataError', message: 'Invalid keyData' },
+      `missing private JWK CRT field ${field}`);
+  }
 }
 
 // combinations to test
